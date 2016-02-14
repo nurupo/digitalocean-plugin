@@ -25,26 +25,10 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
-import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.Image;
-import com.myjeeva.digitalocean.pojo.Key;
-import com.myjeeva.digitalocean.pojo.Region;
-import com.myjeeva.digitalocean.pojo.Size;
+import com.myjeeva.digitalocean.pojo.*;
 import hudson.Extension;
 import hudson.RelativePath;
 import hudson.Util;
@@ -55,10 +39,16 @@ import hudson.model.Node;
 import hudson.model.labels.LabelAtom;
 import hudson.slaves.NodeProperty;
 import hudson.util.FormValidation;
+import hudson.util.FormValidation.Kind;
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.google.common.collect.Lists.newArrayList;
 
@@ -283,94 +273,53 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return null;
         }
 
-        public FormValidation doCheckName(@QueryParameter String name) {
-            if (Strings.isNullOrEmpty(name)) {
-                return FormValidation.error("Must be set");
-            } else if (!DropletName.isValidSlaveName(name)) {
-                return FormValidation.error("Must consist of A-Z, a-z, 0-9 and . symbols");
-            } else {
-                return FormValidation.ok();
-            }
+        public FormValidation doCheckName(@QueryParameter final String name) {
+            return new FormValidationAsserter(name)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .isCondition(
+                        new FormValidationAsserter.Condition() {
+                            @Override
+                            public boolean evaluate() {
+                                return DropletName.isValidSlaveName(name);
+                            }
+                        }, Kind.ERROR, "Must consist of A-Z, a-z, 0-9 and . symbols")
+                    .result();
         }
 
         public FormValidation doCheckUsername(@QueryParameter String username) {
-            if (Strings.isNullOrEmpty(username)) {
-                return FormValidation.error("Must be set");
-            } else {
-                return FormValidation.ok();
-            }
+            return new FormValidationAsserter(username)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .result();
         }
 
         public FormValidation doCheckWorkspacePath(@QueryParameter String workspacePath) {
-            if (Strings.isNullOrEmpty(workspacePath)) {
-                return FormValidation.error("Must be set");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        private static FormValidation doCheckNonNegativeNumber(String stringNumber) {
-            if (Strings.isNullOrEmpty(stringNumber)) {
-                return FormValidation.error("Must be set");
-            } else {
-                int number;
-
-                try {
-                    number = Integer.parseInt(stringNumber);
-                } catch (Exception e) {
-                    return FormValidation.error("Must be a number");
-                }
-
-                if (number < 0) {
-                    return FormValidation.error("Must be a nonnegative number");
-                }
-
-                return FormValidation.ok();
-            }
+            return new FormValidationAsserter(workspacePath)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .result();
         }
 
         public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
-            return doCheckNonNegativeNumber(sshPort);
+            return new FormValidationAsserter(sshPort)
+                    .isPositiveLong(Kind.ERROR, "Must be a positive number")
+                    .result();
         }
 
         public FormValidation doCheckNumExecutors(@QueryParameter String numExecutors) {
-            if (Strings.isNullOrEmpty(numExecutors)) {
-                return FormValidation.error("Must be set");
-            } else {
-                int number;
-
-                try {
-                    number = Integer.parseInt(numExecutors);
-                } catch (Exception e) {
-                    return FormValidation.error("Must be a number");
-                }
-
-                if (number <= 0) {
-                    return FormValidation.error("Must be a positive number");
-                }
-
-                return FormValidation.ok();
-            }
+            return new FormValidationAsserter(numExecutors)
+                    .isPositiveLong(Kind.ERROR, "Must be a positive number")
+                    .result();
         }
 
         public FormValidation doCheckIdleTerminationInMinutes(@QueryParameter String idleTerminationInMinutes) {
-            if (Strings.isNullOrEmpty(idleTerminationInMinutes)) {
-                return FormValidation.error("Must be set");
-            } else {
-                int number;
-
-                try {
-                    number = Integer.parseInt(idleTerminationInMinutes);
-                } catch (Exception e) {
-                    return FormValidation.error("Must be a number");
-                }
-
-                return FormValidation.ok();
-            }
+            return new FormValidationAsserter(idleTerminationInMinutes)
+                    .isLong(Kind.ERROR, "Must be a number")
+                    .result();
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
-            return doCheckNonNegativeNumber(instanceCap);
+            return new FormValidationAsserter(instanceCap)
+                    .isNonNegativeLong(Kind.ERROR, "Must be a non-negative number")
+                    .result();
         }
 
         public FormValidation doCheckSizeId(@RelativePath("..") @QueryParameter String authToken) {
@@ -382,11 +331,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         }
 
         public FormValidation doCheckRegionId(@RelativePath("..") @QueryParameter String authToken) {
-            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+            FormValidation form = Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+            if (form.kind != Kind.OK) {
+                return form;
+            }
+
+            return FormValidation.warning("If you are creating a droplet off a snapshot, make sure that the snapshot " +
+                    "is available in the selected region, otherwise the droplet creation will fail");
         }
 
         public ListBoxModel doFillSizeIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
-
             List<Size> availableSizes = DigitalOcean.getAvailableSizes(authToken);
             ListBoxModel model = new ListBoxModel();
 
@@ -398,7 +352,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         }
 
         public ListBoxModel doFillImageIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
-
             SortedMap<String, Image> availableImages = DigitalOcean.getAvailableImages(authToken);
             ListBoxModel model = new ListBoxModel();
 
@@ -416,7 +369,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         }
 
         public ListBoxModel doFillRegionIdItems(@RelativePath("..") @QueryParameter String authToken) throws Exception {
-
             List<Region> availableSizes = DigitalOcean.getAvailableRegions(authToken);
             ListBoxModel model = new ListBoxModel();
 
@@ -427,25 +379,35 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return model;
         }
 
-        public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException {
-            boolean hasStart=false,hasEnd=false;
-            BufferedReader br = new BufferedReader(new StringReader(value));
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.equals("-----BEGIN RSA PRIVATE KEY-----"))
-                    hasStart=true;
-                if (line.equals("-----END RSA PRIVATE KEY-----"))
-                    hasEnd=true;
-            }
-            if(!hasStart)
-                return FormValidation.error("This doesn't look like a private key at all");
-            if(!hasEnd)
-                return FormValidation.error("The private key is missing the trailing 'END RSA PRIVATE KEY' marker. Copy&paste error?");
-            return FormValidation.ok();
+        public FormValidation doCheckPrivateKey(@QueryParameter String privateKey) {
+            return new FormValidationAsserter(privateKey)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .contains("-----BEGIN RSA PRIVATE KEY-----", Kind.ERROR,
+                            "Couldn't find \"-----BEGIN RSA PRIVATE KEY-----\" line")
+                    .contains("-----END RSA PRIVATE KEY-----", Kind.ERROR,
+                            "Couldn't find \"-----END RSA PRIVATE KEY-----\" line")
+                    .result();
+        }
+
+        public FormValidation doChecklabelString(@QueryParameter String labelString) {
+            return new FormValidationAsserter(labelString)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .result();
         }
 
         public FormValidation doCheckSshKeyId(@RelativePath("..") @QueryParameter String authToken) {
             return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+        }
+
+        public ListBoxModel doFillSshKeyIdItems(@RelativePath("..") @QueryParameter String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
+            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
+            ListBoxModel model = new ListBoxModel();
+
+            for (Key image : availableSizes) {
+                model.add(image.getName(), image.getId().toString());
+            }
+
+            return model;
         }
     }
 

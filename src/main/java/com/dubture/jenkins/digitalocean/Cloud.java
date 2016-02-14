@@ -25,12 +25,10 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Strings;
 import com.myjeeva.digitalocean.exception.DigitalOceanException;
 import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
 import com.myjeeva.digitalocean.impl.DigitalOceanClient;
 import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.Key;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -38,14 +36,11 @@ import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
+import hudson.util.FormValidation.Kind;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -304,64 +299,41 @@ public class Cloud extends hudson.slaves.Cloud {
             return "Digital Ocean";
         }
 
-        public FormValidation doTestConnection(@QueryParameter String authToken) {
+        public FormValidation doCheckName(@QueryParameter final String name) {
+            return new FormValidationAsserter(name)
+                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+                    .isCondition(
+                            new FormValidationAsserter.Condition() {
+                                @Override
+                                public boolean evaluate() {
+                                    return DropletName.isValidCloudName(name);
+                                }
+                            }, Kind.ERROR, "Must consist of A-Z, a-z, 0-9 and . symbols")
+                    .result();
+        }
+
+        public static FormValidation doCheckAuthToken(@QueryParameter String authToken) {
+            return new FormValidationAsserter(authToken)
+                    .isNotNullOrEmpty(Kind.ERROR, "Auth token must be set")
+                    .result();
+        }
+
+        public FormValidation doTestConnection(@QueryParameter final String authToken) {
             try {
                 DigitalOceanClient client = new DigitalOceanClient(authToken);
                 client.getAvailableDroplets(1);
-                return FormValidation.ok("Digitalocean API request succeeded.");
+                return FormValidation.ok("DigitalOcean API request succeeded.");
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to connect to DigitalOcean API", e);
                 return FormValidation.error(e.getMessage());
             }
         }
 
-        public FormValidation doCheckName(@QueryParameter String name) {
-            if (Strings.isNullOrEmpty(name)) {
-                return FormValidation.error("Must be set");
-            } else if (!DropletName.isValidCloudName(name)) {
-                return FormValidation.error("Must consist of A-Z, a-z, 0-9 and . symbols");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public static FormValidation doCheckAuthToken(@QueryParameter String authToken) {
-            if (Strings.isNullOrEmpty(authToken)) {
-                return FormValidation.error("Auth token must be set");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
-            if (Strings.isNullOrEmpty(instanceCap)) {
-                return FormValidation.error("Instance cap must be set");
-            } else {
-                int instanceCapNumber;
-
-                try {
-                    instanceCapNumber = Integer.parseInt(instanceCap);
-                } catch (Exception e) {
-                    return FormValidation.error("Instance cap must be a number");
-                }
-
-                if (instanceCapNumber < 0) {
-                    return FormValidation.error("Instance cap must be a positive number");
-                }
-
-                return FormValidation.ok();
-            }
+            return new FormValidationAsserter(instanceCap)
+                    .isNonNegativeLong(Kind.ERROR, "Must be a non-negative number")
+                    .result();
         }
 
-        public ListBoxModel doFillSshKeyIdItems(@QueryParameter String authToken) throws RequestUnsuccessfulException, DigitalOceanException {
-            List<Key> availableSizes = DigitalOcean.getAvailableKeys(authToken);
-            ListBoxModel model = new ListBoxModel();
-
-            for (Key image : availableSizes) {
-                model.add(image.getName(), image.getId().toString());
-            }
-
-            return model;
-        }
     }
 }
