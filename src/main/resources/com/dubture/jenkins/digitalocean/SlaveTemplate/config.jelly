@@ -57,6 +57,14 @@
             <f:textbox default="22" />
         </f:entry>
 
+        <f:entry title="SSH public key" field="sshKeyId">
+            <f:select />
+        </f:entry>
+
+        <f:entry title="SSH private key" field="privateKey">
+            <f:textarea/>
+        </f:entry>
+
         <f:entry title="Labels" field="labelString">
             <f:textbox/>
         </f:entry>

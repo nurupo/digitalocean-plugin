@@ -73,16 +73,6 @@ public class Cloud extends hudson.slaves.Cloud {
      */
     private final String authToken;
 
-    /**
-     * The SSH key to be added to the new droplet.
-     */
-    private final Integer sshKeyId;
-
-    /**
-     * The SSH private key associated with the selected SSH key
-     */
-    private final String privateKey;
-
     private final Integer instanceCap;
 
     /**
@@ -107,20 +97,16 @@ public class Cloud extends hudson.slaves.Cloud {
      * Constructor parameters are injected via jelly in the jenkins global configuration
      * @param name A name associated with this cloud configuration
      * @param authToken A DigitalOcean V2 API authentication token, generated on their website.
-     * @param privateKey An RSA private key in text format
-     * @param sshKeyId An identifier (name) for an SSH key known to DigitalOcean
      * @param instanceCap the maximum number of instances that can be started
      * @param templates the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String authToken, String privateKey, String sshKeyId, String instanceCap, List<? extends SlaveTemplate> templates) {
+    public Cloud(String name, String authToken, String instanceCap, List<? extends SlaveTemplate> templates) {
         super(name);
 
         LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
 
         this.authToken = authToken;
-        this.privateKey = privateKey;
-        this.sshKeyId = Integer.parseInt(sshKeyId);
         this.instanceCap = Integer.parseInt(instanceCap);
 
         if (templates == null) {
@@ -211,7 +197,7 @@ public class Cloud extends hudson.slaves.Cloud {
                                     LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
                                     return null;
                                 }
-                                slave = template.provision(dropletName, name, authToken, privateKey, sshKeyId);
+                                slave = template.provision(dropletName, name, authToken);
                             }
                             Jenkins.getInstance().addNode(slave);
                             slave.toComputer().connect(false).get();
@@ -295,14 +281,6 @@ public class Cloud extends hudson.slaves.Cloud {
         return authToken;
     }
 
-    public String getPrivateKey() {
-        return privateKey;
-    }
-
-    public int getSshKeyId() {
-        return sshKeyId;
-    }
-
     public int getInstanceCap() {
         return instanceCap;
     }
@@ -353,27 +331,6 @@ public class Cloud extends hudson.slaves.Cloud {
             } else {
                 return FormValidation.ok();
             }
-        }
-
-        public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException {
-            boolean hasStart=false,hasEnd=false;
-            BufferedReader br = new BufferedReader(new StringReader(value));
-            String line;
-            while ((line = br.readLine()) != null) {
-                if (line.equals("-----BEGIN RSA PRIVATE KEY-----"))
-                    hasStart=true;
-                if (line.equals("-----END RSA PRIVATE KEY-----"))
-                    hasEnd=true;
-            }
-            if(!hasStart)
-                return FormValidation.error("This doesn't look like a private key at all");
-            if(!hasEnd)
-                return FormValidation.error("The private key is missing the trailing 'END RSA PRIVATE KEY' marker. Copy&paste error?");
-            return FormValidation.ok();
-        }
-
-        public FormValidation doCheckSshKeyId(@QueryParameter String authToken) {
-            return doCheckAuthToken(authToken);
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {

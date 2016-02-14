@@ -25,7 +25,9 @@
 
 package com.dubture.jenkins.digitalocean;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +67,7 @@ import static com.google.common.collect.Lists.newArrayList;
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision(String, String, String, String, Integer)} method
+ * <p>The {@link SlaveTemplate#provision(String, String, String)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
@@ -110,6 +112,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     private final Integer instanceCap;
 
     /**
+     * The SSH key to be added to the new droplet.
+     */
+    private final Integer sshKeyId;
+
+    /**
+     * The SSH private key associated with the selected SSH key
+     */
+    private final String privateKey;
+
+    /**
      * User-supplied data for configuring a droplet
      */
     private final String userData;
@@ -138,7 +150,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     @DataBoundConstructor
     public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
                          Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         String instanceCap, String userData, String initScript) {
+                         String instanceCap, String userData, String initScript, Integer sshKeyId, String privateKey) {
 
         LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -150,6 +162,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.username = username;
         this.workspacePath = workspacePath;
         this.sshPort = sshPort;
+        this.sshKeyId = sshKeyId;
+        this.privateKey = privateKey;
 
         this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
         this.numExecutors = tryParseInteger(numExecutors, 1);
@@ -194,7 +208,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return count >= instanceCap;
     }
 
-    public Slave provision(String dropletName, String cloudName, String authToken, String privateKey, Integer sshKeyId)
+    public Slave provision(String dropletName, String cloudName, String authToken)
             throws IOException, RequestUnsuccessfulException, Descriptor.FormException {
 
         LOGGER.log(Level.INFO, "Provisioning slave...");
@@ -412,6 +426,27 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
             return model;
         }
+
+        public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException {
+            boolean hasStart=false,hasEnd=false;
+            BufferedReader br = new BufferedReader(new StringReader(value));
+            String line;
+            while ((line = br.readLine()) != null) {
+                if (line.equals("-----BEGIN RSA PRIVATE KEY-----"))
+                    hasStart=true;
+                if (line.equals("-----END RSA PRIVATE KEY-----"))
+                    hasEnd=true;
+            }
+            if(!hasStart)
+                return FormValidation.error("This doesn't look like a private key at all");
+            if(!hasEnd)
+                return FormValidation.error("The private key is missing the trailing 'END RSA PRIVATE KEY' marker. Copy&paste error?");
+            return FormValidation.ok();
+        }
+
+        public FormValidation doCheckSshKeyId(@RelativePath("..") @QueryParameter String authToken) {
+            return Cloud.DescriptorImpl.doCheckAuthToken(authToken);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -477,6 +512,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public int getSshPort() {
         return sshPort;
+    }
+
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    public int getSshKeyId() {
+        return sshKeyId;
     }
 
     private static int tryParseInteger(final String integerString, final int defaultValue) {
