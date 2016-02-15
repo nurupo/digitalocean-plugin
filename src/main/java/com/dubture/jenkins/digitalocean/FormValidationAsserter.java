@@ -4,7 +4,7 @@ import hudson.util.FormValidation;
 
 /**
  * Allows you to assert some basic properties of the input value and provide a FormValidation.Kind (WARNING or ERROR)
- * and message that should be displayed in case the assertion doesn't hold.
+ * and message that should be displayed to the user in case the assertion doesn't hold.
  * 
  * Construct with a value you want to use in assertions, chain some assertions and get the result.
  * Result is FormValidation.ok() if no assertions failed, or FormValidation.warning() with the message of the first
@@ -21,6 +21,11 @@ public class FormValidationAsserter {
     public FormValidationAsserter(String value) {
         this.value = value;
         this.validation = FormValidation.ok();
+    }
+
+    public FormValidationAsserter(FormValidationAsserter copy) {
+        this.value = copy.value;
+        this.validation = copy.validation;
     }
 
     public interface Condition {
@@ -67,7 +72,7 @@ public class FormValidationAsserter {
         }, kind, message);
     }
 
-    public FormValidationAsserter isNotNullOrEmpty(FormValidation.Kind kind, String message) {
+    public FormValidationAsserter isSet(FormValidation.Kind kind, String message) {
         return isNotNull(kind, message).isNotEmpty(kind, message);
     }
 

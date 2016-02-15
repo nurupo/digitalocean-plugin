@@ -93,8 +93,8 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
         }
 
         public FormValidation doCheckName(@QueryParameter final String name) {
-            return new FormValidationAsserter(name)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(name)
+                    .isSet()
                     .isCondition(
                             new FormValidationAsserter.Condition() {
                                 @Override
@@ -106,48 +106,45 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
         }
 
         public FormValidation doCheckLabels(@QueryParameter String labels) {
-            return new FormValidationAsserter(labels)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(labels)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckImage(@QueryParameter String image) {
-            return new FormValidationAsserter(image)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(image)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckSshPrivateKey(@QueryParameter String sshPrivateKey) {
-            return new FormValidationAsserter(sshPrivateKey)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
-                    .contains("-----BEGIN RSA PRIVATE KEY-----", FormValidation.Kind.ERROR,
-                            "Couldn't find \"-----BEGIN RSA PRIVATE KEY-----\" line")
-                    .contains("-----END RSA PRIVATE KEY-----", FormValidation.Kind.ERROR,
-                            "Couldn't find \"-----END RSA PRIVATE KEY-----\" line")
+            return new SpecializedFormValidationAsserter(sshPrivateKey)
+                    .isSet()
+                    .isSshPrivateKey()
                     .result();
         }
 
         public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
-            return new FormValidationAsserter(sshPort)
-                    .isPositiveLong(FormValidation.Kind.ERROR, "Must be a positive number")
+            return new SpecializedFormValidationAsserter(sshPort)
+                    .isPositiveLong()
                     .result();
         }
 
         public FormValidation doCheckUsername(@QueryParameter String username) {
-            return new FormValidationAsserter(username)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(username)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckWorkspacePath(@QueryParameter String workspacePath) {
-            return new FormValidationAsserter(workspacePath)
-                    .isNotNullOrEmpty(FormValidation.Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(workspacePath)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
-            return new FormValidationAsserter(instanceCap)
-                    .isNonNegativeLong(FormValidation.Kind.ERROR, "Must be a non-negative number")
+            return new SpecializedFormValidationAsserter(instanceCap)
+                    .isNonNegativeLong()
                     .result();
         }
     }

@@ -268,8 +268,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         }
 
         public FormValidation doCheckName(@QueryParameter final String name) {
-            return new FormValidationAsserter(name)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(name)
+                    .isSet()
                     .isCondition(
                         new FormValidationAsserter.Condition() {
                             @Override
@@ -281,38 +281,38 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         }
 
         public FormValidation doCheckUsername(@QueryParameter String username) {
-            return new FormValidationAsserter(username)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(username)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckWorkspacePath(@QueryParameter String workspacePath) {
-            return new FormValidationAsserter(workspacePath)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(workspacePath)
+                    .isSet()
                     .result();
         }
 
         public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
-            return new FormValidationAsserter(sshPort)
-                    .isPositiveLong(Kind.ERROR, "Must be a positive number")
+            return new SpecializedFormValidationAsserter(sshPort)
+                    .isPositiveLong()
                     .result();
         }
 
         public FormValidation doCheckNumExecutors(@QueryParameter String numExecutors) {
-            return new FormValidationAsserter(numExecutors)
-                    .isPositiveLong(Kind.ERROR, "Must be a positive number")
+            return new SpecializedFormValidationAsserter(numExecutors)
+                    .isPositiveLong()
                     .result();
         }
 
         public FormValidation doCheckIdleTerminationInMinutes(@QueryParameter String idleTerminationInMinutes) {
-            return new FormValidationAsserter(idleTerminationInMinutes)
-                    .isLong(Kind.ERROR, "Must be a number")
+            return new SpecializedFormValidationAsserter(idleTerminationInMinutes)
+                    .isLong()
                     .result();
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
-            return new FormValidationAsserter(instanceCap)
-                    .isNonNegativeLong(Kind.ERROR, "Must be a non-negative number")
+            return new SpecializedFormValidationAsserter(instanceCap)
+                    .isNonNegativeLong()
                     .result();
         }
 
@@ -374,18 +374,15 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         }
 
         public FormValidation doCheckPrivateKey(@QueryParameter String privateKey) {
-            return new FormValidationAsserter(privateKey)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
-                    .contains("-----BEGIN RSA PRIVATE KEY-----", Kind.ERROR,
-                            "Couldn't find \"-----BEGIN RSA PRIVATE KEY-----\" line")
-                    .contains("-----END RSA PRIVATE KEY-----", Kind.ERROR,
-                            "Couldn't find \"-----END RSA PRIVATE KEY-----\" line")
+            return new SpecializedFormValidationAsserter(privateKey)
+                    .isSet()
+                    .isSshPrivateKey()
                     .result();
         }
 
         public FormValidation doChecklabelString(@QueryParameter String labelString) {
-            return new FormValidationAsserter(labelString)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(labelString)
+                    .isSet()
                     .result();
         }
 

@@ -295,8 +295,8 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         public FormValidation doCheckName(@QueryParameter final String name) {
-            return new FormValidationAsserter(name)
-                    .isNotNullOrEmpty(Kind.ERROR, "Must be set")
+            return new SpecializedFormValidationAsserter(name)
+                    .isSet()
                     .isCondition(
                             new FormValidationAsserter.Condition() {
                                 @Override
@@ -308,8 +308,8 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         public static FormValidation doCheckAuthToken(@QueryParameter String authToken) {
-            return new FormValidationAsserter(authToken)
-                    .isNotNullOrEmpty(Kind.ERROR, "Auth token must be set")
+            return new SpecializedFormValidationAsserter(authToken)
+                    .isSet()
                     .result();
         }
 
@@ -325,8 +325,8 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         public FormValidation doCheckInstanceCap(@QueryParameter String instanceCap) {
-            return new FormValidationAsserter(instanceCap)
-                    .isNonNegativeLong(Kind.ERROR, "Must be a non-negative number")
+            return new SpecializedFormValidationAsserter(instanceCap)
+                    .isNonNegativeLong()
                     .result();
         }
 
