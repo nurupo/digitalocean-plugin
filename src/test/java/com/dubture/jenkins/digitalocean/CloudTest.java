@@ -38,8 +38,8 @@ public class CloudTest {
     public void testSomething() throws Exception {
 
         /*
-        List<SlaveTemplate> templates = new ArrayList<SlaveTemplate>();
-        templates.add(new SlaveTemplate("444", "4", "4", "4", "10", ""));
+        List<DropletTemplate> templates = new ArrayList<DropletTemplate>();
+        templates.add(new DropletTemplate("444", "4", "4", "4", "10", ""));
         jenkinsRule.getInstance().clouds.add(new Cloud("foo", "key", "id", "key", "2", templates));
         hudson.slaves.Cloud foo = jenkinsRule.getInstance().getCloud("foo");
         jenkinsRule.createSlave();

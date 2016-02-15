@@ -34,9 +34,7 @@ import hudson.RelativePath;
 import hudson.Util;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
-import hudson.model.Label;
 import hudson.model.Node;
-import hudson.model.labels.LabelAtom;
 import hudson.slaves.NodeProperty;
 import hudson.util.FormValidation;
 import hudson.util.FormValidation.Kind;
@@ -53,30 +51,19 @@ import java.util.logging.Logger;
 import static com.google.common.collect.Lists.newArrayList;
 
 /**
- * A {@link SlaveTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
+ * A {@link DropletTemplate} represents the configuration values for creating a new slave via a DigitalOcean droplet.
  *
  * <p>Holds things like Image ID, sizeId and region used for the specific droplet.
  *
- * <p>The {@link SlaveTemplate#provision(String, String, String)} method
+ * <p>The {@link DropletTemplate#provision(String, String, String)} method
  * is the main entry point to create a new droplet via the DigitalOcean API when a new slave needs to be provisioned.
  *
  * @author robert.gruendler@dubture.com
  */
 @SuppressWarnings("unused")
-public class SlaveTemplate implements Describable<SlaveTemplate> {
+public class DropletTemplate implements Describable<DropletTemplate> {
 
     private final String name;
-
-    private final String labelString;
-
-    private final int idleTerminationInMinutes;
-
-    /**
-     * The maximum number of executors that this slave will run.
-     */
-    private final int numExecutors;
-
-    private final String labels;
 
     /**
      * The Image to be used for the droplet.
@@ -95,21 +82,23 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     private final String username;
 
-    private final String workspacePath;
-
-    private final Integer sshPort;
-
-    private final Integer instanceCap;
-
     /**
      * The SSH key to be added to the new droplet.
      */
-    private final Integer sshKeyId;
+    private final String sshKeyId;
 
     /**
      * The SSH private key associated with the selected SSH key
      */
     private final String privateKey;
+
+    private final int sshPort;
+
+    //private final String labelString;
+
+    private final int idleTerminationInMinutes;
+
+    private final int instanceCap;
 
     /**
      * User-supplied data for configuring a droplet
@@ -122,9 +111,22 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      */
     private final String initScript;
 
-    private transient Set<LabelAtom> labelSet;
+    private final int dockerStartingSshPort;
 
-    private static final Logger LOGGER = Logger.getLogger(SlaveTemplate.class.getName());
+    private final int dockerInstanceCap;
+
+    /**
+     * The maximum number of executors that this slave will run.
+     */
+    //private final int numExecutors;
+
+    //private final String labels;
+
+    //private final String workspacePath;
+
+    //private transient Set<LabelAtom> labelSet;
+
+    private static final Logger LOGGER = Logger.getLogger(DropletTemplate.class.getName());
 
     /**
      * Data is injected from the global Jenkins configuration via jelly.
@@ -132,17 +134,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
      * @param sizeId the image size e.g. "512mb" or "1gb"
      * @param regionId the region e.g. "nyc1"
      * @param idleTerminationInMinutes how long to wait before destroying a slave
-     * @param numExecutors the number of executors that this slave supports
-     * @param labelString the label for this slave
      * @param userData user data for DigitalOcean to apply when building the slave
      * @param initScript setup script to configure the slave
      */
     @DataBoundConstructor
-    public SlaveTemplate(String name, String imageId, String sizeId, String regionId, String username, String workspacePath,
-                         Integer sshPort, String idleTerminationInMinutes, String numExecutors, String labelString,
-                         String instanceCap, String userData, String initScript, Integer sshKeyId, String privateKey) {
+    public DropletTemplate(String name, String imageId, String sizeId, String regionId, String username, String sshKeyId,
+                           String privateKey, int sshPort, int idleTerminationInMinutes, int instanceCap, String userData,
+                           String initScript, int dockerStartingSshPort, int dockerInstanceCap) {
 
-        LOGGER.log(Level.INFO, "Creating SlaveTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
+        LOGGER.log(Level.INFO, "Creating DropletTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
 
         this.name = name;
@@ -150,21 +150,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.sizeId = sizeId;
         this.regionId = regionId;
         this.username = username;
-        this.workspacePath = workspacePath;
-        this.sshPort = sshPort;
         this.sshKeyId = sshKeyId;
         this.privateKey = privateKey;
-
-        this.idleTerminationInMinutes = tryParseInteger(idleTerminationInMinutes, 10);
-        this.numExecutors = tryParseInteger(numExecutors, 1);
-        this.labelString = labelString;
-        this.labels = Util.fixNull(labelString);
-        this.instanceCap = Integer.parseInt(instanceCap);
-
+        this.sshPort = sshPort;
+        this.idleTerminationInMinutes = idleTerminationInMinutes;
+        this.instanceCap = instanceCap;
         this.userData = userData;
         this.initScript = initScript;
-
-        readResolve();
+        this.dockerStartingSshPort = dockerStartingSshPort;
+        this.dockerInstanceCap = dockerInstanceCap;
     }
 
     public boolean isInstanceCapReached(String authToken, String cloudName) throws RequestUnsuccessfulException, DigitalOceanException {
@@ -216,7 +210,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             droplet.setSize(sizeId);
             droplet.setRegion(new Region(regionId));
             droplet.setImage(DigitalOcean.newImage(imageId));
-            droplet.setKeys(newArrayList(new Key(sshKeyId)));
+            droplet.setKeys(newArrayList(new Key(Integer.parseInt(sshKeyId))));
 
             if (!(userData == null || userData.trim().isEmpty())) {
                 droplet.setUserData(userData);
@@ -266,7 +260,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     @Extension
-    public static final class DescriptorImpl extends Descriptor<SlaveTemplate> {
+    public static final class DescriptorImpl extends Descriptor<DropletTemplate> {
 
         @Override
         public String getDisplayName() {
@@ -412,12 +406,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     @SuppressWarnings("unchecked")
-    public Descriptor<SlaveTemplate> getDescriptor() {
+    public Descriptor<DropletTemplate> getDescriptor() {
         return Jenkins.getInstance().getDescriptor(getClass());
     }
 
     public String getName() {
         return name;
+    }
+
+    public String getImageId() {
+        return imageId;
     }
 
     public String getSizeId() {
@@ -428,32 +426,20 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return regionId;
     }
 
-    public String getLabels() {
-        return labels;
-    }
-
-    public String getLabelString() {
-        return labelString;
-    }
-
-    public Set<LabelAtom> getLabelSet() {
-        return labelSet;
-    }
-
-    public String getImageId() {
-        return imageId;
-    }
-
     public String getUsername() {
         return username;
     }
 
-    public String getWorkspacePath() {
-        return workspacePath;
+    public String getSshKeyId() {
+        return sshKeyId;
     }
 
-    public int getNumExecutors() {
-        return numExecutors;
+    public String getPrivateKey() {
+        return privateKey;
+    }
+
+    public int getSshPort() {
+        return sshPort;
     }
 
     public int getIdleTerminationInMinutes() {
@@ -472,30 +458,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return initScript;
     }
 
-    public int getSshPort() {
-        return sshPort;
+    public int getDockerStartingSshPort() {
+        return dockerStartingSshPort;
     }
 
-    public String getPrivateKey() {
-        return privateKey;
+    public int getDockerInstanceCap() {
+        return dockerInstanceCap;
     }
 
-    public int getSshKeyId() {
-        return sshKeyId;
-    }
-
-    private static int tryParseInteger(final String integerString, final int defaultValue) {
-        try {
-            return Integer.parseInt(integerString);
-        }
-        catch (NumberFormatException e) {
-            LOGGER.log(Level.INFO, "Invalid integer {0}, defaulting to {1}", new Object[] {integerString, defaultValue});
-            return defaultValue;
-        }
-    }
-
-    protected Object readResolve() {
-        labelSet = Label.parse(labels);
-        return this;
-    }
 }

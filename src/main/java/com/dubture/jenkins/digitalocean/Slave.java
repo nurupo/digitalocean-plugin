@@ -72,7 +72,7 @@ public class Slave extends AbstractCloudSlave {
     private final int sshPort;
 
     /**
-     * {@link Slave}s are created by {@link SlaveTemplate}s
+     * {@link Slave}s are created by {@link DropletTemplate}s
      */
     public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
                  String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,

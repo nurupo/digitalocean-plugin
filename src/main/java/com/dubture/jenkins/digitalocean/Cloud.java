@@ -68,12 +68,12 @@ public class Cloud extends hudson.slaves.Cloud {
      */
     private final String authToken;
 
-    private final Integer instanceCap;
+    private final int instanceCap;
 
     /**
-     * List of {@link com.dubture.jenkins.digitalocean.SlaveTemplate}
+     * List of {@link DropletTemplate}
      */
-    private final List<? extends SlaveTemplate> templates;
+    private final List<? extends DropletTemplate> templates;
 
     private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
 
@@ -96,19 +96,14 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param templates the templates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String authToken, String instanceCap, List<? extends SlaveTemplate> templates) {
+    public Cloud(String name, String authToken, int instanceCap, List<? extends DropletTemplate> templates) {
         super(name);
 
         LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
 
         this.authToken = authToken;
-        this.instanceCap = Integer.parseInt(instanceCap);
-
-        if (templates == null) {
-            this.templates = Collections.emptyList();
-        } else {
-            this.templates = templates;
-        }
+        this.instanceCap = instanceCap;
+        this.templates = templates == null ? Collections.<DropletTemplate>emptyList() : templates;
 
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
     }
@@ -119,7 +114,7 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         int slaveTotalInstanceCap = 0;
-        for (SlaveTemplate t : templates) {
+        for (DropletTemplate t : templates) {
             int slaveInstanceCap = t.getInstanceCap();
             if (slaveInstanceCap == 0) {
                 slaveTotalInstanceCap = Integer.MAX_VALUE;
@@ -177,7 +172,7 @@ public class Cloud extends hudson.slaves.Cloud {
                         break;
                     }
 
-                    final SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                    final DropletTemplate template = getTemplateBelowInstanceCap(label);
                     if (template == null) {
                         break;
                     }
@@ -217,7 +212,7 @@ public class Cloud extends hudson.slaves.Cloud {
     public boolean canProvision(Label label) {
         synchronized (provisionSynchronizor) {
             try {
-                SlaveTemplate template = getTemplateBelowInstanceCap(label);
+                DropletTemplate template = getTemplateBelowInstanceCap(label);
                 if (template == null) {
                     LOGGER.log(Level.INFO, "No slaves could provision for label " + label.getDisplayName() + " because they either dodn't support such a label or have reached the instance cap.");
                     return false;
@@ -237,10 +232,10 @@ public class Cloud extends hudson.slaves.Cloud {
         }
     }
 
-    public List<SlaveTemplate> getTemplates(Label label) {
-        List<SlaveTemplate> matchingTemplates = new ArrayList<SlaveTemplate>();
+    public List<DropletTemplate> getTemplates(Label label) {
+        List<DropletTemplate> matchingTemplates = new ArrayList<DropletTemplate>();
 
-        for (SlaveTemplate t : templates) {
+        for (DropletTemplate t : templates) {
             if (label == null && t.getLabelSet().size() != 0) {
                 continue;
             }
@@ -252,11 +247,11 @@ public class Cloud extends hudson.slaves.Cloud {
         return matchingTemplates;
     }
 
-    public SlaveTemplate getTemplateBelowInstanceCap(Label label) {
-        List<SlaveTemplate> matchingTempaltes = getTemplates(label);
+    public DropletTemplate getTemplateBelowInstanceCap(Label label) {
+        List<DropletTemplate> matchingTempaltes = getTemplates(label);
 
         try {
-            for (SlaveTemplate t : matchingTempaltes) {
+            for (DropletTemplate t : matchingTempaltes) {
                 if (!t.isInstanceCapReached(authToken, name)) {
                     return t;
                 }
@@ -284,7 +279,7 @@ public class Cloud extends hudson.slaves.Cloud {
         return new DigitalOceanClient(authToken);
     }
 
-    public List<SlaveTemplate> getTemplates() {
+    public List<DropletTemplate> getTemplates() {
         return Collections.unmodifiableList(templates);
     }
 

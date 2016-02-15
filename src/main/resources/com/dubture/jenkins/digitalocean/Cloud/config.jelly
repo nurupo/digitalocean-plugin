@@ -43,7 +43,7 @@
 
     <f:entry title="Droplets" description="List of droplets which can be launched as slaves">
         <f:repeatable field="templates">
-            <st:include page="/com/dubture/jenkins/digitalocean/SlaveTemplate/config.jelly" class="com.dubture.jenkins.digitalocean.SlaveTemplate$DescriptorImpl"/>
+            <st:include page="/com/dubture/jenkins/digitalocean/SlaveTemplate/config.jelly" class="com.dubture.jenkins.digitalocean.DropletTemplate$DescriptorImpl"/>
         </f:repeatable>
     </f:entry>
 
