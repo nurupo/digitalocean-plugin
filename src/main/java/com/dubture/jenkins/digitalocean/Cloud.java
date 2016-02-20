@@ -67,12 +67,8 @@ public class Cloud extends hudson.slaves.Cloud {
      * @see "https://developers.digitalocean.com/documentation/v2/#authentication"
      */
     private final String authToken;
+    private final int    instanceCap;
 
-    private final int instanceCap;
-
-    /**
-     * List of {@link DropletTemplate}
-     */
     private final List<? extends DropletTemplate> templates;
 
     private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
@@ -101,8 +97,9 @@ public class Cloud extends hudson.slaves.Cloud {
 
         LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
 
-        this.authToken = authToken;
+        this.authToken   = authToken;
         this.instanceCap = instanceCap;
+
         this.templates = templates == null ? Collections.<DropletTemplate>emptyList() : templates;
 
         LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
@@ -309,7 +306,7 @@ public class Cloud extends hudson.slaves.Cloud {
 
         public static FormValidation doCheckAuthToken(@QueryParameter String authToken) {
             return new SpecializedFormValidationAsserter(authToken)
-                    .isSet()
+                    .isSet(Kind.ERROR, "Auth token must be set")
                     .result();
         }
 

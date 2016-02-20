@@ -1,7 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
+  ~ Copyright (c) 2014 robert.gruendler@dubture.com
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,8 @@
   -->
 
 <div>
-    An unique name for the Slave Template / Droplet.
-
-    <P>
-    Note that no Slave Template should have the same name within a Cloud, thus why it's "unique".
-
-    <P>
-    As the Slave Template name is used in droplet names, only A-Z, a-z. 0-9 and . can be
-    used in the name.
+    Shell script to run when connecting to the newly created Droplet. It's run
+    under the user which you have specified in this template.
+    This differs from the "User data" in that this is executed by Jenkins,
+    as opposed to DigitalOcean's provisioning process.
 </div>
