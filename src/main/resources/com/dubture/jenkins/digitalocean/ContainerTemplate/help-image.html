@@ -1,7 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2014 robert.gruendler@dubture.com
+  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -23,5 +23,9 @@
   -->
 
 <div>
-    The image used for provisioning new droplets from this template.
+    Name of Docker image to be used in `docker run &lt;image&gt;` command.
+    <p>
+    Note that this plugin requires a sshd being set up and running in the image.
+    You can either manually prepare such an image in a Droplet and use the snapshot feature of Digital Ocean to create
+    Droplets out of the snapshot, or just add instructions on how to build your image to the Droplet's Init Script.
 </div>

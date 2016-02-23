@@ -69,7 +69,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
     private final String regionId;
     private final String username;
     private final String sshKeyId;
-    private final String privateKey;
+    private final String sshPrivateKey;
     private final int    sshPort;
     private final int    idleTerminationTimeMinutes;
     private final int    instanceCap;
@@ -82,8 +82,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
 
     @DataBoundConstructor
     public DropletTemplate(String name, String imageId, String sizeId, String regionId, String username, String sshKeyId,
-                           String privateKey, int sshPort, int idleTerminationTimeMinutes, int instanceCap, String userData,
-                           String initScript, int containerStartingSshPort, int containerInstanceCap) {
+                           String sshPrivateKey, int sshPort, int idleTerminationTimeMinutes, int instanceCap,
+                           String userData, String initScript, int containerStartingSshPort, int containerInstanceCap) {
 
         LOGGER.log(Level.INFO, "Creating DropletTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -94,7 +94,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         this.regionId                   = regionId;
         this.username                   = username;
         this.sshKeyId                   = sshKeyId;
-        this.privateKey                 = privateKey;
+        this.sshPrivateKey              = sshPrivateKey;
         this.sshPort                    = sshPort;
         this.idleTerminationTimeMinutes = idleTerminationTimeMinutes;
         this.instanceCap                = instanceCap;
@@ -164,7 +164,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
             DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
             Droplet createdDroplet = apiClient.createDroplet(droplet);
 
-            return newSlave(cloudName, createdDroplet, privateKey);
+            return newSlave(cloudName, createdDroplet, sshPrivateKey);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
             throw new AssertionError();
@@ -301,8 +301,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
             return model;
         }
 
-        public FormValidation doCheckPrivateKey(@QueryParameter String privateKey) {
-            return new SpecializedFormValidationAsserter(privateKey)
+        public FormValidation doCheckSshPrivateKey(@QueryParameter String sshPrivateKey) {
+            return new SpecializedFormValidationAsserter(sshPrivateKey)
                     .isSet()
                     .isSshPrivateKey()
                     .result();
@@ -368,8 +368,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         return sshKeyId;
     }
 
-    public String getPrivateKey() {
-        return privateKey;
+    public String getSshPrivateKey() {
+        return sshPrivateKey;
     }
 
     public int getSshPort() {

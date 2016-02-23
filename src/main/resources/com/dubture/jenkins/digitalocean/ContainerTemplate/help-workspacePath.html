@@ -1,7 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2014 robert.gruendler@dubture.com
+  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -23,9 +23,8 @@
   -->
 
 <div>
-    User data is arbitrary data that a user can supply to a droplet during its creation time. User data can be
-    consumed by CloudInit, typically during the first boot of a cloud server, to perform tasks or run scripts as the
-    root user, which can be useful when provisioning a server. Read more on <a
-    href="https://www.digitalocean.com/community/tutorials/an-introduction-to-droplet-metadata"
-    >DigitalOcean's introduction to droplet metadata</a>.
+    Absolute path to a directory in which Jenkins will put the workspace directory.
+
+    <P>
+    Make sure that the user Jenkins runs as has enough permissions to write into that directory.
 </div>

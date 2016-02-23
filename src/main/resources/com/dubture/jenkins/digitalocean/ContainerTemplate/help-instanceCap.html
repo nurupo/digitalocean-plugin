@@ -1,8 +1,7 @@
 <!--
   ~ The MIT License (MIT)
   ~
-  ~ Copyright (c) 2014 robert.gruendler@dubture.com
-  ~               2016 Maxim Biro <nurupo.contributions@gmail.com>
+  ~ Copyright (c) 2016 Maxim Biro <nurupo.contributions@gmail.com>
   ~
   ~ Permission is hereby granted, free of charge, to any person obtaining a copy
   ~ of this software and associated documentation files (the "Software"), to deal
@@ -23,19 +22,8 @@
   ~ THE SOFTWARE.
   -->
 <div>
-    You can place the upward limit to the number of DigitalOcean droplets that
-    Jenkins may launch for this particular Droplet Template. A Droplet Template
-    is identified by "Unique name" field.
-    This is useful for avoiding surprises in the billing statement.
-
-    <P>
-    For example, if this field is 3, Jenkins will only launch a new instance as
-    long as total number of droplets associated with this Droplet Template on DigitalOcean
-    doesn't exceed this number. In this way, even in the worst case of Jenkins
-    starting instances and forgetting about them, you have an upper bound in
-    the number of instances tof this Droplet Template hat are concurrently executed.
+    Limit how many Containers created off this Container Template can run at any point in time.
 
     <p>
-    Set to 0 to remove the cap (why would you want that though?).
-    Note that DigitalOcean appears to have its own instance cap at 5.
+    Set to 0 to remove the cap.
 </div>

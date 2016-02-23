@@ -23,21 +23,24 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
     private final String workspacePath;
     private final int    instanceCap;
     private final String initScript;
+    private final String extraRunArguments;
 
     private final transient Set<LabelAtom> labelSet;
 
     @DataBoundConstructor
     public ContainerTemplate(String name, String labels, String image, String sshPrivateKey, int sshPort,
-                             String username, String workspacePath, int instanceCap, String initScript) {
-        this.name          = name;
-        this.labels        = labels;
-        this.image         = image;
-        this.sshPrivateKey = sshPrivateKey;
-        this.sshPort       = sshPort;
-        this.username      = username;
-        this.workspacePath = workspacePath;
-        this.instanceCap   = instanceCap;
-        this.initScript    = initScript;
+                             String username, String workspacePath, int instanceCap, String initScript,
+                             String extraRunArguments) {
+        this.name              = name;
+        this.labels            = labels;
+        this.image             = image;
+        this.sshPrivateKey     = sshPrivateKey;
+        this.sshPort           = sshPort;
+        this.username          = username;
+        this.workspacePath     = workspacePath;
+        this.instanceCap       = instanceCap;
+        this.initScript        = initScript;
+        this.extraRunArguments = extraRunArguments;
 
         labelSet = Label.parse(labels);
     }
@@ -81,6 +84,10 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
 
     public String getInitScript() {
         return initScript;
+    }
+
+    public String getExtraRunArguments() {
+        return extraRunArguments;
     }
 
 
