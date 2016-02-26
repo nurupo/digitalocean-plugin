@@ -25,7 +25,7 @@
 <div>
     Container's internal SSH ports need to be mapped to Droplet's external ports,
     so that Jenkins could SSH into the Container directly from the Internet. This
-    settings sets the starting port for this mapping, e.g. is it's set to value
+    setting sets the starting port for this mapping, e.g. if it's set to value
     of 1500, then the first Container would be mapped to 1500, the second to 1501,
-    etc.
+    etc., possibly reusing the ports as containers get created and destroyed.
 </div>

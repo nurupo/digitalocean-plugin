@@ -24,23 +24,25 @@
   -->
 
 <div>
-    Determines how long slaves can remain idle before being terminated - that
-    is the droplet being destroyed.
+    Specifies how long the Droplet can remain idle (no jobs in containers running)
+    before being terminated - that is the Droplet being destroyed.
 
     <P>
     Times are expressed in minutes, and a value of 0 indicates that idle slaves
     should never be terminated.
 
     <P>
-    As Jenkins doesn't check the idle status of slaves every minute even if you
-    tell it to (it might skip checks for a few minutes), Jenkins might
-    terminate the slave a few minutes late of what you specify in this field.
+    As Jenkins is not very precise when it comes to checking the idle status of
+    slaves, Jenkins might terminate the slave a few minutes later of what you
+    specify in this field, depending on how busy Jenkins is.
 
     <P>
     Experimental: set to any negative value to destroy the droplet right before
-    you get charged for the next hour. Keeping a droplet running for as long as
-    possible (without gettting charged extra) is supposed to save money, as
-    creating a droplet charges you for 1 hour automatically. Note that
-    DigitalOcean charges for the second hour at 1 hour and 30 minutes, so the
+    Digital Ocean charges for the next hour. This option of keeping a droplet
+    running for as long as possible (without gettting charged extra) is supposed
+    to save money, as (re)creating a droplet charges you for 1 hour automatically.
+    You want to keep a droplet running for as long as possible to avoid unnecessary
+    recreations of droplets.
+    Note that Digital Ocean charges for the second hour at 1 hour and 30 minutes, so the
     first hour is about 1 hour and 29 minutes long.
 </div>

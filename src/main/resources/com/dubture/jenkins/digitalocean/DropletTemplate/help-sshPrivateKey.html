@@ -24,7 +24,7 @@
   -->
 
 <div>
-    The private SSH key that will be used by Jenkins to connect to this Droplet.
+    The private key that will be used by Jenkins to ssh into the Droplet.
 
     <P>
     Make sure that the user that Jenkins will try to ssh as has the public key
@@ -32,6 +32,6 @@
 
     <P>
     If you set the user to be "root", then this key must correspond to the
-    public SSH key above, as Digital Ocean will automatically add it to
+    public key of this Droplet, as Digital Ocean will automatically add it to
     /root/.ssh/authorized_keys file.
 </div>

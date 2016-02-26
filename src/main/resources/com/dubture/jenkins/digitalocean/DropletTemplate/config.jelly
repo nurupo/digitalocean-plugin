@@ -85,6 +85,12 @@
             <f:textbox default="1"/>
         </f:entry>
 
+        <f:entry title="Droplet Containers" description="List of containers which can be launched as slaves">
+            <f:repeatable field="containerTemplates">
+                <st:include page="/com/dubture/jenkins/digitalocean/ContainerTemplate/config.jelly" class="com.dubture.jenkins.digitalocean.ContainerTemplate$DescriptorImpl"/>
+            </f:repeatable>
+        </f:entry>
+
         <f:entry title="Delete Droplet">
             <div align="right">
                 <f:repeatableDeleteButton />

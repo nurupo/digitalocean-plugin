@@ -78,12 +78,15 @@ public class DropletTemplate implements Describable<DropletTemplate> {
     private final int    containerStartingSshPort;
     private final int    containerInstanceCap;
 
+    private final List<? extends ContainerTemplate> containerTemplates;
+
     private static final Logger LOGGER = Logger.getLogger(DropletTemplate.class.getName());
 
     @DataBoundConstructor
     public DropletTemplate(String name, String imageId, String sizeId, String regionId, String username, String sshKeyId,
                            String sshPrivateKey, int sshPort, int idleTerminationTimeMinutes, int instanceCap,
-                           String userData, String initScript, int containerStartingSshPort, int containerInstanceCap) {
+                           String userData, String initScript, int containerStartingSshPort, int containerInstanceCap,
+                           List<? extends ContainerTemplate> containerTemplates) {
 
         LOGGER.log(Level.INFO, "Creating DropletTemplate with imageId = {0}, sizeId = {1}, regionId = {2}",
                 new Object[] { imageId, sizeId, regionId});
@@ -102,6 +105,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         this.initScript                 = initScript;
         this.containerStartingSshPort   = containerStartingSshPort;
         this.containerInstanceCap       = containerInstanceCap;
+
+        this.containerTemplates         = containerTemplates == null ? Collections.<ContainerTemplate>emptyList() : containerTemplates;
     }
 
     public boolean isInstanceCapReached(String authToken, String cloudName) throws RequestUnsuccessfulException, DigitalOceanException {
@@ -398,6 +403,10 @@ public class DropletTemplate implements Describable<DropletTemplate> {
 
     public int getContainerInstanceCap() {
         return containerInstanceCap;
+    }
+
+    public List<ContainerTemplate> getContainerTemplates() {
+        return Collections.unmodifiableList(containerTemplates);
     }
 
 }

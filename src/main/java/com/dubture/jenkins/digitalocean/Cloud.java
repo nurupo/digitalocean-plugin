@@ -69,7 +69,7 @@ public class Cloud extends hudson.slaves.Cloud {
     private final String authToken;
     private final int    instanceCap;
 
-    private final List<? extends DropletTemplate> templates;
+    private final List<? extends DropletTemplate> dropletTemplates;
 
     private static final Logger LOGGER = Logger.getLogger(Cloud.class.getName());
 
@@ -89,10 +89,10 @@ public class Cloud extends hudson.slaves.Cloud {
      * @param name A name associated with this cloud configuration
      * @param authToken A DigitalOcean V2 API authentication token, generated on their website.
      * @param instanceCap the maximum number of instances that can be started
-     * @param templates the templates for this cloud
+     * @param dropletTemplates the dropletTemplates for this cloud
      */
     @DataBoundConstructor
-    public Cloud(String name, String authToken, int instanceCap, List<? extends DropletTemplate> templates) {
+    public Cloud(String name, String authToken, int instanceCap, List<? extends DropletTemplate> dropletTemplates) {
         super(name);
 
         LOGGER.log(Level.INFO, "Constructing new Cloud(name = {0}, <token>, <privateKey>, <keyId>, instanceCap = {1}, ...)", new Object[]{name, instanceCap});
@@ -100,9 +100,9 @@ public class Cloud extends hudson.slaves.Cloud {
         this.authToken   = authToken;
         this.instanceCap = instanceCap;
 
-        this.templates = templates == null ? Collections.<DropletTemplate>emptyList() : templates;
+        this.dropletTemplates = dropletTemplates == null ? Collections.<DropletTemplate>emptyList() : dropletTemplates;
 
-        LOGGER.info("Creating DigitalOcean cloud with " + this.templates.size() + " templates");
+        LOGGER.info("Creating DigitalOcean cloud with " + this.dropletTemplates.size() + " dropletTemplates");
     }
 
     public boolean isInstanceCapReached() throws RequestUnsuccessfulException, DigitalOceanException {
@@ -111,7 +111,7 @@ public class Cloud extends hudson.slaves.Cloud {
         }
 
         int slaveTotalInstanceCap = 0;
-        for (DropletTemplate t : templates) {
+        for (DropletTemplate t : dropletTemplates) {
             int slaveInstanceCap = t.getInstanceCap();
             if (slaveInstanceCap == 0) {
                 slaveTotalInstanceCap = Integer.MAX_VALUE;
@@ -232,7 +232,7 @@ public class Cloud extends hudson.slaves.Cloud {
     public List<DropletTemplate> getTemplates(Label label) {
         List<DropletTemplate> matchingTemplates = new ArrayList<DropletTemplate>();
 
-        for (DropletTemplate t : templates) {
+        for (DropletTemplate t : dropletTemplates) {
             if (label == null && t.getLabelSet().size() != 0) {
                 continue;
             }
@@ -276,8 +276,8 @@ public class Cloud extends hudson.slaves.Cloud {
         return new DigitalOceanClient(authToken);
     }
 
-    public List<DropletTemplate> getTemplates() {
-        return Collections.unmodifiableList(templates);
+    public List<DropletTemplate> getDropletTemplates() {
+        return Collections.unmodifiableList(dropletTemplates);
     }
 
     @Extension

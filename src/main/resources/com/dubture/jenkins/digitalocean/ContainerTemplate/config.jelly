@@ -38,7 +38,7 @@
         </f:entry>
 
         <f:entry title="Image" field="image">
-            <f:select />
+            <f:textbox />
         </f:entry>
 
         <f:entry title="SSH private key" field="sshPrivateKey">
@@ -66,7 +66,7 @@
         </f:entry>
 
         <f:entry title="Extra run arguments" field="extraRunArguments">
-            <f:textarea/>
+            <f:textbox />
         </f:entry>
 
         <f:entry title="Delete Docker Container">
