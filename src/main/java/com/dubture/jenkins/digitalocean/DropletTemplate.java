@@ -34,6 +34,7 @@ import hudson.RelativePath;
 import hudson.Util;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
+import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.NodeProperty;
 import hudson.util.FormValidation;
@@ -81,6 +82,8 @@ public class DropletTemplate implements Describable<DropletTemplate> {
     private final List<? extends ContainerTemplate> containerTemplates;
 
     private static final Logger LOGGER = Logger.getLogger(DropletTemplate.class.getName());
+
+    //private transient Cloud cloud;
 
     @DataBoundConstructor
     public DropletTemplate(String name, String imageId, String sizeId, String regionId, String username, String sshKeyId,
@@ -138,6 +141,33 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         }
 
         return count >= instanceCap;
+    }
+
+    public int getDropletCountLocal(String cloudName) {
+        int count = 0;
+
+        List<Droplet> activeDroplets = Cloud.getActiveDroplets();
+        for (Droplet d : activeDroplets) {
+            if (Name.isDropletOfDropletTemplate(d.getName(), cloudName, name)) {
+                count ++;
+            }
+        }
+
+        return count;
+    }
+
+    public int getDropletCountRemote(String cloudName, List<com.myjeeva.digitalocean.pojo.Droplet> droplets) {
+        int count = 0;
+
+        for (com.myjeeva.digitalocean.pojo.Droplet d : droplets) {
+            if (d.isActive() || d.isNew()) {
+                if (Name.isDropletOfDropletTemplate(d.getName(), cloudName, name)) {
+                    count++;
+                }
+            }
+        }
+
+        return count;
     }
 
     public Slave provision(String dropletName, String cloudName, String authToken)
@@ -207,6 +237,51 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         );
     }
 
+    public boolean canProvisionLocal(Label label, String cloudName) {
+        // check if any of the existing Droplets created off this Droplet Template can provision a container for this label
+        List<Droplet> activeDroplets = Cloud.getActiveDroplets();
+
+        for (Droplet d : activeDroplets) {
+            if (!Name.isDropletOfDropletTemplate(d.getName(), cloudName, name)) {
+                continue;
+            }
+
+            if (d.canProvisionContainer(label)) {
+                return true;
+            }
+        }
+
+        // ok, so none of existing Droplets created off this Droplet Template can provision a container for this label.
+        // can we start a new Droplet off this Droplet Template that could do that?
+
+        // check if instance cap of Droplet instances created off this Droplet Template is reached
+        if (instanceCap != 0 && instanceCap <= getDropletCountLocal(cloudName)) {
+            return false;
+        }
+
+        // ok, instance cap is not reached yet, so we can create a new Droplet
+
+        // check if any of Container Templates of this Droplet Template actually have the requested label
+        for (ContainerTemplate ct : containerTemplates) {
+            if (ct.hasLabel(label)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean canProvisionRemote(Label label, String cloudName, List<com.myjeeva.digitalocean.pojo.Droplet> droplets) {
+        // check if instance cap of Droplet instances created off this Droplet Template is reached
+        if (instanceCap != 0 && instanceCap <= getDropletCountRemote(cloudName, droplets)) {
+            return false;
+        }
+
+        // TODO: check Container Count remote via Droplet object?
+
+        return true;
+    }
+
     @Extension
     public static final class DescriptorImpl extends Descriptor<DropletTemplate> {
 
@@ -222,7 +297,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
                         new FormValidationAsserter.Condition() {
                             @Override
                             public boolean evaluate() {
-                                return DropletName.isValidSlaveName(name);
+                                return Name.isValidTemplateName(name);
                             }
                         }, Kind.ERROR, "Must consist of A-Z, a-z, 0-9 and . symbols")
                     .result();

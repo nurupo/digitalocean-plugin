@@ -4,12 +4,14 @@ import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
 import hudson.model.Label;
+import hudson.model.Node;
 import hudson.model.labels.LabelAtom;
 import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import java.util.List;
 import java.util.Set;
 
 public class ContainerTemplate implements Describable<ContainerTemplate> {
@@ -90,6 +92,9 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
         return extraRunArguments;
     }
 
+    public boolean hasLabel(Label label) {
+        return !labelSet.isEmpty() && label.matches(labelSet);
+    }
 
     @Extension
     public static final class DescriptorImpl extends Descriptor<ContainerTemplate> {
@@ -106,7 +111,7 @@ public class ContainerTemplate implements Describable<ContainerTemplate> {
                             new FormValidationAsserter.Condition() {
                                 @Override
                                 public boolean evaluate() {
-                                    return DropletName.isValidSlaveName(name);
+                                    return Name.isValidTemplateName(name);
                                 }
                             }, FormValidation.Kind.ERROR, "Must consist of A-Z, a-z, 0-9 and . symbols")
                     .result();
