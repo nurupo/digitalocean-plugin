@@ -161,7 +161,89 @@ public class Cloud extends hudson.slaves.Cloud {
         synchronized (provisionSynchronizor) {
             List<NodeProvisioner.PlannedNode> provisioningNodes = new ArrayList<NodeProvisioner.PlannedNode>();
             try {
-                while (excessWorkload > 0) {
+
+                List<DropletTemplate> existingDroplets = new ArrayList<DropletTemplate>();
+                List<DropletTemplate> newDroplets = new ArrayList<DropletTemplate>();
+
+                // check if the instance cap for this cloud was reached based on what Jenkins knows
+                if (instanceCap != 0 && instanceCap <= getDropletCountLocal()) {
+                    LOGGER.log(Level.INFO, "Local instance cap of " + getInstanceCap() + " total droplets in Cloud \"" + getDisplayName() +"\" is reached, not provisioning.");
+                    return provisioningNodes;
+                }
+
+                // get a list of all DropletTemplates that can provision this label
+                for (DropletTemplate dt : dropletTemplates) {
+                    if (dt.canProvisionExistingLocal(label, getDisplayName())) {
+                        existingDroplets.add(dt);
+                    }
+                    if (dt.canProvisionNewLocal(label, getDisplayName())) {
+                        newDroplets.add(dt);
+                    }
+                }
+
+                if (existingDroplets.isEmpty() && newDroplets.isEmpty()) {
+                    LOGGER.log(Level.INFO, "Based on local data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
+                    return provisioningNodes;
+                }
+
+                for (DropletTemplate dt : existingDroplets) {
+                    if (excessWorkload <= 0) {
+                        break;
+                    }
+                    List<NodeProvisioner.PlannedNode> nodes = dt.provisionExisting(label, excessWorkload);
+                    provisioningNodes.addAll(nodes);
+                    excessWorkload -= nodes.size();
+                }
+
+                if (excessWorkload <= 0) {
+                    return provisioningNodes;
+                }
+
+                if (newDroplets.isEmpty()) {
+                    return provisioningNodes;
+                }
+
+                LOGGER.log(Level.INFO, "Cloud \"" + getDisplayName() +"\" needs to create new droplet to provision for label " + label.getDisplayName());
+
+                List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
+
+                // check if the instance cap for this cloud was reached based on Digital Ocean data
+                if (instanceCap != 0 && instanceCap <= getDropletCountRemote(droplets)) {
+                    LOGGER.log(Level.INFO, "Remote instance cap of " + getInstanceCap() + " total droplets in Cloud \"" + getDisplayName() +"\" is reached, not provisioning.");
+                    return provisioningNodes;
+                }
+
+                int allowedNewDroplets = instanceCap - getDropletCountRemote(droplets);
+
+                // get a list of all DropletTemplates that can provision this label
+                Iterator<DropletTemplate> it = newDroplets.iterator();
+                while (it.hasNext()) {
+                    DropletTemplate dt = it.next();
+                    if (!dt.canProvisionNewRemote(label, getDisplayName(), droplets)) {
+                        it.remove();
+                    }
+                }
+
+                if (newDroplets.isEmpty()) {
+                    LOGGER.log(Level.INFO, "Based on remote data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
+                    return provisioningNodes;
+                }
+
+                for (DropletTemplate dt : newDroplets) {
+                    if (excessWorkload <= 0 || allowedNewDroplets <= 0) {
+                        break;
+                    }
+
+                    List<List<NodeProvisioner.PlannedNode>> nodes = dt.provisionNew(label, excessWorkload, allowedNewDroplets, droplets);
+                    for (List<NodeProvisioner.PlannedNode> n : nodes) {
+                        provisioningNodes.addAll(n);
+                        excessWorkload -= n.size();
+                        allowedNewDroplets -= 1;
+                    }
+                }
+
+                return provisioningNodes;
+/*
 
                     if (isInstanceCapReached()) {
                         LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
@@ -192,14 +274,14 @@ public class Cloud extends hudson.slaves.Cloud {
                     }), template.getNumExecutors()));
 
                     excessWorkload -= template.getNumExecutors();
-                }
+
 
                 LOGGER.info("Provisioning " + provisioningNodes.size() + " DigitalOcean nodes");
 
-                return provisioningNodes;
+                return provisioningNodes;*/
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, e.getMessage(), e);
-                return Collections.emptyList();
+                return provisioningNodes;
             }
         }
     }
@@ -231,27 +313,42 @@ public class Cloud extends hudson.slaves.Cloud {
         return count;
     }
 
-    public List<DropletTemplate> provisionCandidatesLocal(Label label) {
-        List<DropletTemplate> candidateDropletTemplates = new ArrayList<DropletTemplate>();
+    @Override
+    public boolean canProvision(Label label) {
+        // firstly, we want to make sure we don't exceed any instance caps and there is actually a container
+        // that has a matching label assigned without doing any Digital Ocean API calls, as they are rate limited.
+
+        List<DropletTemplate> existingDroplets = new ArrayList<DropletTemplate>();
+        List<DropletTemplate> newDroplets = new ArrayList<DropletTemplate>();
 
         // check if the instance cap for this cloud was reached based on what Jenkins knows
         if (instanceCap != 0 && instanceCap <= getDropletCountLocal()) {
             LOGGER.log(Level.INFO, "Local instance cap of " + getInstanceCap() + " total droplets in Cloud \"" + getDisplayName() +"\" is reached, not provisioning.");
-            return candidateDropletTemplates;
+            return false;
         }
 
         // get a list of all DropletTemplates that can provision this label
         for (DropletTemplate dt : dropletTemplates) {
-            if (dt.canProvisionLocal(label, getDisplayName())) {
-                candidateDropletTemplates.add(dt);
+            if (dt.canProvisionExistingLocal(label, getDisplayName())) {
+                existingDroplets.add(dt);
+            }
+            if (dt.canProvisionNewLocal(label, getDisplayName())) {
+                newDroplets.add(dt);
             }
         }
 
-        return candidateDropletTemplates;
-    }
+        if (existingDroplets.isEmpty() && newDroplets.isEmpty()) {
+            LOGGER.log(Level.INFO, "Based on local data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
+            return false;
+        } else if (!existingDroplets.isEmpty()) {
+            LOGGER.log(Level.INFO, "Cloud \"" + getDisplayName() +"\" can provision for label " + label.getDisplayName() + " on existing droplet");
+            return true;
+        }
 
-    public List<DropletTemplate> provisionCandidatesRemote(Label label, final List<DropletTemplate> candidateDropletTemplates) {
-        List<DropletTemplate> filteredDropletTemplates = new ArrayList<DropletTemplate>();
+        LOGGER.log(Level.INFO, "Cloud \"" + getDisplayName() +"\" needs to create new droplet to provision for label " + label.getDisplayName());
+
+        // ok, based on the local check, there is a Droplet Template which can provision a container
+        // now let's perform the remote check (i.e. Digital Ocean)
 
         try {
             List<Droplet> droplets = DigitalOcean.getDroplets(authToken);
@@ -259,41 +356,24 @@ public class Cloud extends hudson.slaves.Cloud {
             // check if the instance cap for this cloud was reached based on Digital Ocean data
             if (instanceCap != 0 && instanceCap <= getDropletCountRemote(droplets)) {
                 LOGGER.log(Level.INFO, "Remote instance cap of " + getInstanceCap() + " total droplets in Cloud \"" + getDisplayName() +"\" is reached, not provisioning.");
-                return filteredDropletTemplates;
+                return false;
             }
 
             // get a list of all DropletTemplates that can provision this label
-            for (DropletTemplate dt : candidateDropletTemplates) {
-                if (dt.canProvisionRemote(label, getDisplayName(), droplets)) {
-                    filteredDropletTemplates.add(dt);
+            Iterator<DropletTemplate> it = newDroplets.iterator();
+            while (it.hasNext()) {
+                DropletTemplate dt = it.next();
+                if (!dt.canProvisionNewRemote(label, getDisplayName(), droplets)) {
+                    it.remove();
                 }
+            }
+
+            if (newDroplets.isEmpty()) {
+                LOGGER.log(Level.INFO, "Based on remote data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
+                return false;
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, e.getMessage(), e);
-        }
-
-        return filteredDropletTemplates;
-    }
-
-    @Override
-    public boolean canProvision(Label label) {
-        // firstly, we want to make sure we don't exceed any instance caps and there is actually a container
-        // that has a matching label assigned without doing any Digital Ocean API calls, as they are rate limited.
-
-        List<DropletTemplate> candidateDropletTemplates = provisionCandidatesLocal(label);
-
-        if (candidateDropletTemplates.isEmpty()) {
-            LOGGER.log(Level.INFO, "Based on local data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
-            return false;
-        }
-
-        // ok, based on the local check, there is a Droplet Template which can provision a container
-        // now let's perform the remote check (i.e. Digital Ocean)
-
-        candidateDropletTemplates = provisionCandidatesRemote(label, candidateDropletTemplates);
-
-        if (candidateDropletTemplates.isEmpty()) {
-            LOGGER.log(Level.INFO, "Based on remote data, Cloud \"" + getDisplayName() +"\" can't provision for label " + label.getDisplayName());
             return false;
         }
 

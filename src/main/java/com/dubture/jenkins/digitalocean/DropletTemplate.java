@@ -237,7 +237,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         );
     }
 
-    public boolean canProvisionLocal(Label label, String cloudName) {
+    public boolean canProvisionExistingLocal(Label label, String cloudName) {
         // check if any of the existing Droplets created off this Droplet Template can provision a container for this label
         List<Droplet> activeDroplets = Cloud.getActiveDroplets();
 
@@ -251,6 +251,10 @@ public class DropletTemplate implements Describable<DropletTemplate> {
             }
         }
 
+        return false;
+    }
+
+    public boolean canProvisionNewLocal(Label label, String cloudName) {
         // ok, so none of existing Droplets created off this Droplet Template can provision a container for this label.
         // can we start a new Droplet off this Droplet Template that could do that?
 
@@ -271,7 +275,7 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         return false;
     }
 
-    public boolean canProvisionRemote(Label label, String cloudName, List<com.myjeeva.digitalocean.pojo.Droplet> droplets) {
+    public boolean canProvisionNewRemote(Label label, String cloudName, List<com.myjeeva.digitalocean.pojo.Droplet> droplets) {
         // check if instance cap of Droplet instances created off this Droplet Template is reached
         if (instanceCap != 0 && instanceCap <= getDropletCountRemote(cloudName, droplets)) {
             return false;
