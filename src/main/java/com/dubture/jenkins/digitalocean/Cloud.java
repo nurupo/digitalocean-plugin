@@ -213,6 +213,7 @@ public class Cloud extends hudson.slaves.Cloud {
                     return provisioningNodes;
                 }
 
+                // how many new droplets we are allowed to provision
                 int allowedNewDroplets = instanceCap - getDropletCountRemote(droplets);
 
                 // get a list of all DropletTemplates that can provision this label
