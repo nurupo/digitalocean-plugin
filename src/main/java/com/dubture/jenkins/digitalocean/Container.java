@@ -6,11 +6,20 @@ package com.dubture.jenkins.digitalocean;
 public class Container {
     private final String name; // regex
 
-    public Container(Cloud cloud, DropletTemplate dropletTemplate, ContainerTemplate containerTemplate) {
+    private ContainerTemplate template;
+    private Droplet droplet;
+
+    public Container(Droplet droplet, ContainerTemplate containerTemplate) {
         this.name = Name.generateContainerName(cloud.getDisplayName(), dropletTemplate.getName(), containerTemplate.getName());
+        this.template = containerTemplate;
+        this.droplet = droplet;
     }
 
     public String getName() {
         return name;
+    }
+
+    public ContainerTemplate getTemplate() {
+        return template;
     }
 }

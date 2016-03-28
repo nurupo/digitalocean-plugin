@@ -27,6 +27,7 @@ package com.dubture.jenkins.digitalocean;
 
 import hudson.Extension;
 import hudson.model.Descriptor;
+import hudson.model.Node;
 import hudson.model.TaskListener;
 import hudson.slaves.AbstractCloudSlave;
 import hudson.slaves.ComputerLauncher;
@@ -35,6 +36,7 @@ import hudson.slaves.RetentionStrategy;
 import jenkins.model.Jenkins;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -53,43 +55,24 @@ public class Slave extends AbstractCloudSlave {
 
     private static final Logger LOG = Logger.getLogger(Slave.class.getName());
 
-    private final String cloudName;
-
-    private final int idleTerminationTime;
-
-    private final String initScript;
-
-    private final Integer dropletId;
-
-    private final String privateKey;
-
-    private final String remoteAdmin;
-
-    private final String jvmOpts;
-
     private final long startTimeMillis;
 
-    private final int sshPort;
+    private final Container container;
 
     /**
      * {@link Slave}s are created by {@link DropletTemplate}s
      */
-    public Slave(String cloudName, String name, String nodeDescription, Integer dropletId, String privateKey,
-                 String remoteAdmin, String remoteFS, int sshPort, int numExecutors, int idleTerminationTime,
-                 Mode mode, String labelString, ComputerLauncher launcher, RetentionStrategy retentionStrategy,
-                 List<? extends NodeProperty<?>> nodeProperties, String initScript, String jvmOpts)
-            throws Descriptor.FormException, IOException {
+    public Slave(Container container) throws Descriptor.FormException, IOException {
+        super(container.getName(),
+                "Computer running on DigitalOcean with name: " + container.getName(),
+                container.getTemplate().getWorkspacePath(),
+                1,
+                Node.Mode.NORMAL,
+                container.getTemplate().getLabels(),
+                new com.dubture.jenkins.digitalocean.ComputerLauncher(),
+                new com.dubture.jenkins.digitalocean.RetentionStrategy(),
+                Collections.<NodeProperty<?>>emptyList());
 
-        super(name, nodeDescription, remoteFS, numExecutors, mode, labelString, launcher, retentionStrategy, nodeProperties);
-
-        this.cloudName = cloudName;
-        this.dropletId = dropletId;
-        this.privateKey = privateKey;
-        this.remoteAdmin = remoteAdmin;
-        this.idleTerminationTime = idleTerminationTime;
-        this.initScript = initScript;
-        this.jvmOpts = jvmOpts;
-        this.sshPort = sshPort;
         startTimeMillis = System.currentTimeMillis();
     }
 
@@ -109,6 +92,7 @@ public class Slave extends AbstractCloudSlave {
 
     /**
      * Override to create a DigitalOcean {@link com.dubture.jenkins.digitalocean.Computer}
+     *
      * @return a new Computer instance, instantiated with this Slave instance.
      */
     @Override
@@ -118,20 +102,11 @@ public class Slave extends AbstractCloudSlave {
 
     /**
      * Retrieve a handle to the associated {@link com.dubture.jenkins.digitalocean.Cloud}
+     *
      * @return the Cloud associated with the specified cloudName
      */
     public Cloud getCloud() {
         return (Cloud) Jenkins.getInstance().getCloud(cloudName);
-    }
-
-    /**
-     * Get the name of the remote admin user
-     * @return the remote admin user, defaulting to "root"
-     */
-    public String getRemoteAdmin() {
-        if (remoteAdmin == null || remoteAdmin.length() == 0)
-            return "root";
-        return remoteAdmin;
     }
 
     /**
@@ -150,27 +125,4 @@ public class Slave extends AbstractCloudSlave {
         return startTimeMillis;
     }
 
-    public Integer getDropletId() {
-        return dropletId;
-    }
-
-    public String getPrivateKey() {
-        return privateKey;
-    }
-
-    public int getIdleTerminationTime() {
-        return idleTerminationTime;
-    }
-
-    public String getInitScript() {
-        return initScript;
-    }
-
-    public String getJvmOpts() {
-        return jvmOpts;
-    }
-
-    public int getSshPort() {
-        return sshPort;
-    }
 }

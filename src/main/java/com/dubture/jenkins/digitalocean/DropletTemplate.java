@@ -37,6 +37,7 @@ import hudson.model.Descriptor;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.NodeProperty;
+import hudson.slaves.NodeProvisioner;
 import hudson.util.FormValidation;
 import hudson.util.FormValidation.Kind;
 import hudson.util.ListBoxModel;
@@ -46,6 +47,7 @@ import org.kohsuke.stapler.QueryParameter;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -110,37 +112,6 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         this.containerInstanceCap       = containerInstanceCap;
 
         this.containerTemplates         = containerTemplates == null ? Collections.<ContainerTemplate>emptyList() : containerTemplates;
-    }
-
-    public boolean isInstanceCapReached(String authToken, String cloudName) throws RequestUnsuccessfulException, DigitalOceanException {
-        if (instanceCap == 0) {
-            return false;
-        }
-        LOGGER.log(Level.INFO, "slave limit check");
-
-        int count = 0;
-        List<Node> nodes = Jenkins.getInstance().getNodes();
-        for (Node n : nodes) {
-            if (DropletName.isDropletInstanceOfSlave(n.getDisplayName(), cloudName, name)) {
-                count++;
-            }
-        }
-
-        if (count >= instanceCap) {
-            return true;
-        }
-
-        count = 0;
-        List<Droplet> availableDroplets = DigitalOcean.getDroplets(authToken);
-        for (Droplet droplet : availableDroplets) {
-            if ((droplet.isActive() || droplet.isNew())) {
-                if (DropletName.isDropletInstanceOfSlave(droplet.getName(), cloudName, name)) {
-                    count++;
-                }
-            }
-        }
-
-        return count >= instanceCap;
     }
 
     public int getDropletCountLocal(String cloudName) {
@@ -284,6 +255,49 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         // TODO: check Container Count remote via Droplet object?
 
         return true;
+    }
+
+    public List<List<NodeProvisioner.PlannedNode>> provisionNew(Label label, String cloudName, int neededContainers, int allowedNewDropletsInCloud, List<com.myjeeva.digitalocean.pojo.Droplet> droplets) {
+        // assuming canProvisionNewLocal() && canProvisionNewRemote() are met
+
+        List<List<NodeProvisioner.PlannedNode>> newDroplets = new ArrayList<List<NodeProvisioner.PlannedNode>>();
+
+        int maxAllowedNewDropletsForDropletTemplate = Math.min(instanceCap == 0 ? Integer.MAX_VALUE : instanceCap - getDropletCountRemote(cloudName, droplets), allowedNewDropletsInCloud);
+
+        for (int newDropletsCount = 0; newDropletsCount < maxAllowedNewDropletsForDropletTemplate; newDropletsCount ++) {
+            List<NodeProvisioner.PlannedNode> newDroplet = new ArrayList<NodeProvisioner.PlannedNode>();
+
+            final Droplet droplet = new Droplet(cloud, this);
+            List<Container> containers = droplet.provisionContainers(label, neededContainers);
+
+            for (final Container c : containers) {
+                newDroplet.add(new NodeProvisioner.PlannedNode(droplet.getName(), Computer.threadPoolForRemoting.submit(new Callable<Node>() {
+                    public Node call() throws Exception {
+                        Slave slave = new Slave(c);
+                                /*synchronized (provisionSynchronizor) {
+                                    if (isInstanceCapReached()) {
+                                        LOGGER.log(Level.INFO, "Instance cap of " + getInstanceCap() + " reached, not provisioning.");
+                                        return null;
+                                    }
+                                    slave = template.provision(dropletName, name, authToken);
+                                }
+                                Jenkins.getInstance().addNode(slave);
+                                slave.toComputer().connect(false).get();
+                                return slave;*/
+                    }
+                }), 1));
+            }
+
+            newDroplets.add(newDroplet);
+
+            neededContainers -= containers.size();
+
+            if (neededContainers == 0) {
+                break;
+            }
+        }
+
+        return newDroplets;
     }
 
     @Extension
