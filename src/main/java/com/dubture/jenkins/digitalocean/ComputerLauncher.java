@@ -25,281 +25,83 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.google.common.base.Strings;
-import com.myjeeva.digitalocean.exception.DigitalOceanException;
-import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.pojo.Droplet;
-import com.myjeeva.digitalocean.pojo.Network;
 import com.trilead.ssh2.Connection;
 import com.trilead.ssh2.SCPClient;
 import com.trilead.ssh2.Session;
-import hudson.Util;
 import hudson.model.TaskListener;
 import hudson.remoting.Channel;
 import hudson.slaves.SlaveComputer;
 import hudson.util.TimeUnit2;
 import jenkins.model.Jenkins;
-import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.net.SocketTimeoutException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 
-import static java.lang.String.format;
-
-/**
- * The {@link ComputerLauncher} is responsible for:
- *
- * <ul>
- *   <li>Connecting to a slave via SSH</li>
- *   <li>Installing Java and the Jenkins agent to the slave</li>
- * </ul>
- *
- * @author robert.gruendler@dubture.com
- */
 public class ComputerLauncher extends hudson.slaves.ComputerLauncher {
-    /**
-     * Connects to the given {@link Computer} via SSH and installs Java/Jenkins agent if necessary.
-     */
+
     @Override
     public void launch(SlaveComputer _computer, TaskListener listener) {
-
         Computer computer = (Computer)_computer;
         PrintStream logger = listener.getLogger();
 
         Date startDate = new Date();
-        logger.println("Start time: " + getUtcDate(startDate));
+        logger.println("Start time: " + getUtcDateString(startDate));
 
-        final Connection conn;
-        Connection cleanupConn = null;
-        boolean successful = false;
+        final Connection ssh = computer.getContainer().connect();
 
+        if (ssh == null) {
+            removeNode(computer);
+        } else {
+            if (!installAgent(computer, ssh, logger)) {
+                ssh.close();
+                removeNode(computer);
+            }
+        }
+
+        Date endDate = new Date();
+        logger.println("Done setting up at: " + getUtcDateString(endDate));
+        logger.println("Done in " + TimeUnit2.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
+    }
+
+    private static boolean installAgent(Computer computer, final Connection ssh, PrintStream logger) {
         try {
-            conn = connectToSsh(computer, logger);
-            cleanupConn = conn;
-            logger.println("Authenticating as " + computer.getRemoteAdmin());
-            if (!conn.authenticateWithPublicKey(computer.getRemoteAdmin(), computer.getNode().getPrivateKey().toCharArray(), "")) {
-                logger.println("Authentication failed");
-                throw new Exception("Authentication failed");
-            }
-
-            final SCPClient scp = conn.createSCPClient();
-
-            if (!runInitScript(computer, logger, conn, scp)) {
-                return;
-            }
-
-            if (!installJava(logger, conn)) {
-                return;
-            }
+            final SCPClient scp = ssh.createSCPClient();
 
             logger.println("Copying slave.jar");
-            scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar","/tmp");
-            String jvmOpts = Util.fixNull(computer.getNode().getJvmOpts());
-            String launchString = "java " + jvmOpts + " -jar /tmp/slave.jar";
+            scp.put(Jenkins.getInstance().getJnlpJars("slave.jar").readFully(), "slave.jar", "/tmp");
+            String launchString = "java -jar /tmp/slave.jar";
             logger.println("Launching slave agent: " + launchString);
-            final Session sess = conn.openSession();
+            final Session sess = ssh.openSession();
             sess.execCommand(launchString);
             computer.setChannel(sess.getStdout(), sess.getStdin(), logger, new Channel.Listener() {
                 @Override
                 public void onClosed(Channel channel, IOException cause) {
                     sess.close();
-                    conn.close();
+                    ssh.close();
                 }
             });
-
-            successful = true;
         } catch (Exception e) {
-            try {
-                Jenkins.getInstance().removeNode(computer.getNode());
-            } catch (Exception ee) {
-                ee.printStackTrace(logger);
-            }
-            e.printStackTrace(logger);
-        } finally {
-            Date endDate = new Date();
-            logger.println("Done setting up at: " + getUtcDate(endDate));
-            logger.println("Done in " + TimeUnit2.MILLISECONDS.toSeconds(endDate.getTime() - startDate.getTime()) + " seconds");
-            if(cleanupConn != null && !successful) {
-                cleanupConn.close();
-            }
-        }
-    }
-
-    private boolean runInitScript(final Computer computer, final PrintStream logger, final Connection conn, final SCPClient scp)
-            throws IOException, InterruptedException {
-
-        String initScript = Util.fixEmptyAndTrim(computer.getNode().getInitScript());
-
-        if (initScript == null) {
-            return true;
-        }
-        if (conn.exec("test -e ~/.hudson-run-init", logger) == 0) {
-            return true;
-        }
-
-        logger.println("Executing init script");
-        scp.put(initScript.getBytes("UTF-8"), "init.sh", "/tmp", "0700");
-        Session session = conn.openSession();
-        session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(computer, "/tmp/init.sh"));
-
-        session.getStdin().close();    // nothing to write here
-        session.getStderr().close();   // we are not supposed to get anything from stderr
-        IOUtils.copy(session.getStdout(), logger);
-
-        int exitStatus = waitCompletion(session);
-        if (exitStatus != 0) {
-            logger.println("init script failed: exit code=" + exitStatus);
+            // TODO: write exception message into system log instead of UI log
             return false;
         }
-        session.close();
-
-        // Needs a tty to run sudo.
-        session = conn.openSession();
-        session.requestDumbPTY(); // so that the remote side bundles stdout and stderr
-        session.execCommand(buildUpCommand(computer, "touch ~/.hudson-run-init"));
-        session.close();
 
         return true;
     }
 
-    private boolean installJava(final PrintStream logger, final Connection conn) throws IOException, InterruptedException {
-        logger.println("Verifying that java exists");
-
-        if (conn.exec("java -fullversion", logger) !=0) {
-            logger.println("Installing Java");
-
-            // TODO: Add support for non-debian based java installations
-            // and let the user select the java version
-            if (conn.exec("apt-get update -q && apt-get install -y openjdk-7-jdk", logger) !=0) {
-                logger.println("Failed to download Java");
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private Connection connectToSsh(Computer computer, PrintStream logger) throws RequestUnsuccessfulException, DigitalOceanException {
-
-        // TODO: make configurable?
-        final long timeout = TimeUnit2.MINUTES.toMillis(5);
-        final long startTime = System.currentTimeMillis();
-        final int sleepTime = 10;
-
-        long waitTime;
-
-        while ((waitTime = System.currentTimeMillis() - startTime) < timeout) {
-
-            // Hack to fetch this each time through the loop to get the latest information.
-            final Droplet droplet = DigitalOcean.getDroplet(
-                    computer.getCloud().getAuthToken(),
-                    computer.getNode().getDropletId());
-
-            if (isDropletStarting(droplet)) {
-                logger.println("Waiting for droplet to enter ACTIVE state. Sleeping " + sleepTime + " seconds.");
-            }
-            else {
-                try {
-                    final String host = getIpAddress(computer);
-
-                    if (Strings.isNullOrEmpty(host) || "0.0.0.0".equals(host)) {
-                        logger.println("No ip address yet, your host is most likely waiting for an ip address.");
-                    }
-                    else {
-                        int port = computer.getSshPort();
-
-                        Connection conn = getDropletConnection(host, port, logger);
-                        if (conn != null) {
-                            return conn;
-                        }
-                    }
-                } catch (IOException e) {
-                    // Ignore, we'll retry.
-                }
-                logger.println("Waiting for SSH to come up. Sleeping " + sleepTime + " seconds.");
-            }
-
-            sleep(sleepTime);
-        }
-
-        throw new RuntimeException(format(
-            "Timed out after %d seconds of waiting for ssh to become available (max timeout configured is %s)",
-            waitTime / 1000,
-            timeout / 1000));
-    }
-
-    private static boolean isDropletStarting(final Droplet droplet) {
-
-        switch (droplet.getStatus()) {
-            case NEW:
-                return true;
-
-            case ACTIVE:
-                return false;
-
-            default:
-                throw new IllegalStateException("Droplet has unexpected status: " + droplet.getStatus());
-        }
-    }
-
-    private Connection getDropletConnection(String host, int port, PrintStream logger) throws IOException {
-        logger.println("Connecting to " + host + " on port " + port + ". ");
-        Connection conn = new Connection(host, port);
+    private static void removeNode(Computer computer) {
         try {
-            conn.connect(null, 10 * 1000, 10 * 1000);
-        } catch (SocketTimeoutException e) {
-            return null;
-        }
-        logger.println("Connected via SSH.");
-        return conn;
-    }
-
-    private static String getIpAddress(Computer computer) throws RequestUnsuccessfulException, DigitalOceanException {
-        Droplet instance = computer.updateInstanceDescription();
-
-        for (final Network network : instance.getNetworks().getVersion4Networks()) {
-            String host = network.getIpAddress();
-            if (host != null) {
-                return host;
-            }
-        }
-
-        return null;
-    }
-
-    private int waitCompletion(Session session) throws InterruptedException {
-        // I noticed that the exit status delivery often gets delayed. Wait up to 1 sec.
-        for( int i=0; i<10; i++ ) {
-            Integer r = session.getExitStatus();
-            if(r!=null) return r;
-            Thread.sleep(100);
-        }
-        return -1;
-    }
-
-    protected String buildUpCommand(Computer computer, String command) {
-        if (!computer.getRemoteAdmin().equals("root")) {
-//            command = computer.getRootCommandPrefix() + " " + command;
-        }
-        return command;
-    }
-
-    private static void sleep(int seconds) {
-        try {
-            Thread.sleep(seconds * 1000);
-        }
-        catch (InterruptedException e) {
-            // Ignore
+            Jenkins.getInstance().removeNode(computer.getNode());
+        } catch (Exception e) {
+            // TODO: write exception message into system log instead of UI log
         }
     }
 
-    private String getUtcDate(Date date) {
+    private static String getUtcDateString(Date date) {
         SimpleDateFormat utcFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
         utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        return utcFormat.format(date);
+        return utcFormat.format(new Date());
     }
 }

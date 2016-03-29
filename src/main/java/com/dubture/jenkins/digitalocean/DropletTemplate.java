@@ -177,37 +177,6 @@ public class DropletTemplate implements Describable<DropletTemplate> {
         }
     }
 
-    /**
-     * Create a new {@link Slave} from the given {@link Droplet}
-     * @param droplet the droplet being created
-     * @param privateKey the RSA private key being used
-     * @return the provisioned {@link Slave}
-     * @throws IOException
-     * @throws Descriptor.FormException
-     */
-    private Slave newSlave(String cloudName, Droplet droplet, String privateKey) throws IOException, Descriptor.FormException {
-        LOGGER.log(Level.INFO, "Creating new slave...");
-        return new Slave(
-                cloudName,
-                droplet.getName(),
-                "Computer running on DigitalOcean with name: " + droplet.getName(),
-                droplet.getId(),
-                privateKey,
-                username,
-                workspacePath,
-                sshPort,
-                numExecutors,
-                idleTerminationTimeMinutes,
-                Node.Mode.NORMAL,
-                labels,
-                new ComputerLauncher(),
-                new RetentionStrategy(),
-                Collections.<NodeProperty<?>>emptyList(),
-                Util.fixNull(initScript),
-                ""
-        );
-    }
-
     public boolean canProvisionExistingLocal(Label label, String cloudName) {
         // check if any of the existing Droplets created off this Droplet Template can provision a container for this label
         List<Droplet> activeDroplets = Cloud.getActiveDroplets();
@@ -280,10 +249,10 @@ public class DropletTemplate implements Describable<DropletTemplate> {
                                         return null;
                                     }
                                     slave = template.provision(dropletName, name, authToken);
-                                }
-                                Jenkins.getInstance().addNode(slave);
-                                slave.toComputer().connect(false).get();
-                                return slave;*/
+                                }*/
+                        Jenkins.getInstance().addNode(slave);
+                        slave.toComputer().connect(false).get();
+                        return slave;
                     }
                 }), 1));
             }

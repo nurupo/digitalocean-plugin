@@ -74,6 +74,7 @@ public class Slave extends AbstractCloudSlave {
                 Collections.<NodeProperty<?>>emptyList());
 
         startTimeMillis = System.currentTimeMillis();
+        this.container = container;
     }
 
     @Extension
@@ -98,15 +99,6 @@ public class Slave extends AbstractCloudSlave {
     @Override
     public Computer createComputer() {
         return new Computer(this);
-    }
-
-    /**
-     * Retrieve a handle to the associated {@link com.dubture.jenkins.digitalocean.Cloud}
-     *
-     * @return the Cloud associated with the specified cloudName
-     */
-    public Cloud getCloud() {
-        return (Cloud) Jenkins.getInstance().getCloud(cloudName);
     }
 
     /**

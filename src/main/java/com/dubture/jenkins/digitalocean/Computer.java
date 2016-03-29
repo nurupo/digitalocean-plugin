@@ -25,39 +25,20 @@
 
 package com.dubture.jenkins.digitalocean;
 
-import com.myjeeva.digitalocean.exception.DigitalOceanException;
-import com.myjeeva.digitalocean.exception.RequestUnsuccessfulException;
-import com.myjeeva.digitalocean.impl.DigitalOceanClient;
-import com.myjeeva.digitalocean.pojo.Droplet;
 import hudson.slaves.AbstractCloudComputer;
 
 import java.util.logging.Logger;
 
-/**
- *
- * A {@link hudson.model.Computer} implementation for DigitalOcean. Holds a handle to an {@link Slave}.
- *
- * <p>Mainly responsible for updating the {@link Droplet} information via {@link Computer#updateInstanceDescription()}
- *
- * @author robert.gruendler@dubture.com
- */
 public class Computer extends AbstractCloudComputer<Slave> {
 
     private static final Logger LOGGER = Logger.getLogger(Computer.class.getName());
 
-    private final String authToken;
+    private final Container container;
 
-    private Integer dropletId;
-
-    public Computer(Slave slave) {
+    public Computer(Slave slave, Container container) {
         super(slave);
-        dropletId = slave.getDropletId();
-        authToken = slave.getCloud().getAuthToken();
-    }
 
-    public Droplet updateInstanceDescription() throws RequestUnsuccessfulException, DigitalOceanException {
-        DigitalOceanClient apiClient = new DigitalOceanClient(authToken);
-        return apiClient.getDropletInfo(dropletId);
+        this.container = container;
     }
 
     @Override
@@ -68,18 +49,7 @@ public class Computer extends AbstractCloudComputer<Slave> {
         DigitalOcean.tryDestroyDropletAsync(authToken, dropletId);
     }
 
-    public Cloud getCloud() {
-        return getNode().getCloud();
-    }
-
-    public int getSshPort() {
-        return getNode().getSshPort();
-    }
-
-    public String getRemoteAdmin() {
-        return getNode().getRemoteAdmin();
-    }
-    public long getStartTimeMillis() {
-        return getNode().getStartTimeMillis();
+    public Container getContainer() {
+        return container;
     }
 }
